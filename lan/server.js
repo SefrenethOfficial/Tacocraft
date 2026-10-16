@@ -8,6 +8,7 @@ const os = require('os');
 const crypto = require('crypto');
 const express = require('express');
 const { ExpressPeerServer } = require('peer');
+const { WebSocketServer } = require('ws');
 
 const PORT = +process.env.PORT || 8080;
 const ROOT = fs.existsSync(path.join(__dirname, 'index.html')) ? __dirname : path.join(__dirname, '..');   // (the game page: here, or one folder up)
@@ -108,8 +109,47 @@ api.post('/messages/:id/report', auth, (req, res) => {
 });
 app.use('/api', api);
 
-// ---------------------------------------------------------------- matchmaking and the game page
-app.use('/lan', ExpressPeerServer(server, { allow_discovery: false }));   // matchmaking (the game connects to /lan/)
+// ---------------------------------------------------------------- multiplayer
+// THE RELAY (/relay): every player keeps one WebSocket to this server, and the server passes their messages along. This works on
+// any network that can load the game page from here (no direct device-to-device connection needed).
+const relay = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 * 1024 });
+const relayPeers = new Map(), relayConns = new Map();               // room id -> socket;  connection id -> [socket, socket]
+const rsend = (ws, m) => { try { if (ws && ws.readyState === 1) ws.send(typeof m === 'string' ? m : JSON.stringify(m)); } catch (e) {} };
+const otherEnd = (pair, ws) => pair[0] === ws ? pair[1] : pair[1] === ws ? pair[0] : null;
+relay.on('connection', ws => {
+  ws.on('message', raw => {
+    const text = raw.toString(); let m; try { m = JSON.parse(text); } catch (e) { return; }
+    if (m.t === 'data') { const pair = relayConns.get(m.cid); if (pair) rsend(otherEnd(pair, ws), text); return; }   // (the busy path: pass it straight on)
+    if (m.t === 'reg') {
+      const id = String(m.id || '').slice(0, 64);
+      if (!id || (relayPeers.has(id) && relayPeers.get(id) !== ws)) return rsend(ws, { t: 'taken' });
+      ws.peerId = id; relayPeers.set(id, ws); rsend(ws, { t: 'registered' });
+    } else if (m.t === 'conn') {
+      const target = relayPeers.get(String(m.to)), cid = String(m.cid || '').slice(0, 96);
+      if (!target || !cid) return rsend(ws, { t: 'nopeer', cid });
+      relayConns.set(cid, [ws, target]);
+      rsend(target, { t: 'incoming', cid, from: ws.peerId }); rsend(ws, { t: 'accepted', cid });
+    } else if (m.t === 'close') {
+      const pair = relayConns.get(m.cid); if (!pair) return;
+      relayConns.delete(m.cid); rsend(otherEnd(pair, ws), { t: 'close', cid: m.cid });
+    }
+  });
+  ws.on('close', () => {
+    if (ws.peerId && relayPeers.get(ws.peerId) === ws) relayPeers.delete(ws.peerId);
+    for (const [cid, pair] of relayConns) if (pair.includes(ws)) { relayConns.delete(cid); rsend(otherEnd(pair, ws), { t: 'close', cid }); }
+  });
+});
+// (older game versions use PeerJS matchmaking at /lan/: still here. Its WebSocket and the relay's share this one server.)
+let peerWss = null;
+app.use('/lan', ExpressPeerServer(server, { allow_discovery: false, createWebSocketServer: opts => (peerWss = new WebSocketServer({ noServer: true, path: opts.path })) }));
+server.on('upgrade', (req, socket, head) => {
+  const path = req.url.split('?')[0];
+  if (path === '/relay') relay.handleUpgrade(req, socket, head, ws => relay.emit('connection', ws, req));
+  else if (peerWss && path === peerWss.options.path) peerWss.handleUpgrade(req, socket, head, ws => peerWss.emit('connection', ws, req));
+  else socket.destroy();
+});
+
+// ---------------------------------------------------------------- the game page
 app.use((req, res, next) => /tacocraft-data|\.json$|\.js$|\.bat$|\.sh$/i.test(req.path) ? res.status(404).end() : next());   // (never hand out the saved accounts or server files)
 app.get('/', (req, res) => res.sendFile(path.join(ROOT, 'index.html')));
 app.use(express.static(ROOT, { index: 'index.html' }));
