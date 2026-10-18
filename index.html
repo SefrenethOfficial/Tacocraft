@@ -13611,6 +13611,7 @@ function startSleep(side, wakeHour) {
     if (wakeHour === null) { const toNight = daylight > 0.45; timeOfDay = toNight ? 0.6 : 0.2; msg = toNight ? 'You slept until nightfall.' : 'Good morning!'; }
     else { timeOfDay = (((wakeHour - 6) % 24 + 24) % 24) / 24 + 0.0001; msg = 'You woke up at ' + clockText() + '.'; }
     computeDaylight(); wasNight = daylight < 0.25; netTimeChanged(); showHint(msg);
+    sleepEventRoll(wasNight);                                                         // (you might wake up to a Blood Moon or an eclipse)
     health = Math.min(maxHealth, health + Math.ceil(maxHealth * 0.25)); renderHearts();   // a good night's sleep heals a little
     fade.style.opacity = 0;
   }, 2100);
@@ -13622,6 +13623,17 @@ function startSleep(side, wakeHour) {
     camera.position.set(player.x, player.y + EYE_HEIGHT, player.z); camera.quaternion.setFromEuler(new THREE.Euler(0, yaw, 0, 'YXZ'));
     sleeping = false;
   }, 3300);
+}
+// After sleeping: the clock skipped the sunrise/sunset roll in advanceTime, so roll for a Blood Moon / Solar Eclipse here instead
+function sleepEventRoll(night) {
+  if (NET.mode === 'client') return;                                                  // (the host decides, as usual)
+  if (night) {
+    if (eclipse) { eclipse = false; chatAdd('The solar eclipse is over.', { color: '#ffc080' }); }
+    if (!bloodMoon && !inCorruption && Math.random() < BLOOD_MOON_CHANCE) startBloodMoon();
+  } else {
+    if (bloodMoon) { bloodMoon = false; chatAdd('The Blood Moon sets.', { color: '#ff9a9a' }); }
+    if (!eclipse && hardmode && mechDown.length >= 1 && !inCorruption && Math.random() < ECLIPSE_CHANCE) startEclipse();
+  }
 }
 function holdSleepPose() {                                                            // (every frame while lying down)
   for (const k in keys) keys[k] = false; mouseHeld = false;
