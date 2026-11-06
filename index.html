@@ -15407,6 +15407,7 @@ function applyTemplate(entry) {
     }
   };
   if (T.hm) { hardmode = true; skeletronDead = true; orbsSmashed = Math.max(orbsSmashed, 3); renderDebuffs(); }
+  if (T.allBosses) { mechDown = ['destroyer', 'prime', 'twins']; planteraDead = true; golemDead = true; mechafleshDead = true; scourgeDead = true; }   // (Endgame: every summon works)
   // ---- the village: five 7x6 houses (log corners, plank walls, brick roof), each with a door, a torch, a table and a chair
   if (T.village) {
     const HX = sx - 19, HZ = sz + 6;                                                 // a row of houses just behind the spawn, doors facing it
@@ -15550,14 +15551,25 @@ const KIT_RELICS = [[I.HERMES, 1], [I.CLOUD_BOTTLE, 1], [I.HORSESHOE, 1], [I.COB
 const KIT_BOSSES = [[I.SUSPICIOUS_EYE, 5], [I.VOODOO_DOLL, 3], [I.MOLTEN_SWORD, 1], [I.MOLTEN_PICKAXE, 1], [I.MOLTEN_HAMMER, 1], [220, 1], [221, 1], [222, 1],
   [I.MUSKET, 1], [I.HANDGUN, 1], [I.MUSKET_BALL, 400], [I.HEALTH_BOTTLE, 25], [I.LIFE_CRYSTAL, MAX_LIFE_CRYSTALS], [I.MANA_STAR, MAX_MANA_CRYSTALS],
   [I.HERMES, 1], [I.CLOUD_BOTTLE, 1], [I.COBALT_SHIELD, 1], [I.MAGIC_MISSILE, 1], [I.GRENADE, 30], [B.TORCH, 60], [I.SHADOW_KEY, 1], [I.RECALL_POTION, 5]];
+// Everything from the later updates (Plantera, the Temple, Hotter Hell, Mechaflesh, the Desert Scourge, the Hive Mind...) for the Endgame template
+const KIT_ENDGAME = [
+  [I.EXCALIBUR, 1], [I.PICKAXE_AXE, 1], [I.DRAX, 1], [I.MINISHARK, 1], [516, 1], [517, 1], [518, 1], [I.NIGHTS_EDGE, 1], [I.TABI, 1], [I.SHROOMBLOOM, 1],
+  [I.GRENADE_LAUNCHER, 1], [I.ROCKET_I, 200], [I.VENUS_MAGNUM, 1], [I.NETTLE_BURST, 1], [I.LEAF_BLOWER, 1], [I.FLOWER_POW, 1], [I.WASP_GUN, 1], [I.SEEDLER, 1],
+  [I.VULGAR_FLOWER, 1], [I.PYGMY_STAFF, 1], [I.THORN_HOOK, 1], [I.THE_AXE, 1], [I.SEEDLING, 1], [I.TEMPLE_KEY, 1], [I.POWER_CELL, 3],
+  [I.PICKSAW, 1], [I.STYNGER, 1], [I.POSSESSED_HATCHET, 1], [I.GOLEM_FIST, 1], [I.HEAT_RAY, 1], [I.BEETLE_HUSK, 20], [I.TOPSY_ORB, 1],
+  [I.CYBERITE, 60], [I.CYBER_HEART, 2], [I.CYBER_LIVER, 2], [I.CYBER_LUNG, 2], [I.CYBER_BRAIN, 2], [I.CYBER_EYE, 2], [I.SYBER_SUMMONER, 2],
+  [I.HELLS_REIN, 1], [I.SYNTH_WINGS, 1], [583, 1], [584, 1], [585, 1], [I.GLITCH_BLADE, 1], [I.BYTE_BLASTER, 1], [I.FIREWALL, 1], [I.OVERCLOCK, 1],
+  [I.DESERT_MEDALLION, 3], [I.SEA_REMNANTS, 40], [I.TIDECALLER, 1], [I.SANDBLASTER, 1], [I.PEARL_STAFF, 1], [I.SCOURGE_FANG, 1],
+  [I.ROTTEN_TERATOMA, 3], [B.EBONSTONE, 100], [I.HIVE_SPLITTER, 1], [I.ROT_REPEATER, 1], [I.HIVECALLER, 1], [I.ROTTEN_BRAIN, 1],
+  [I.GREATER_HEALING, 40], [I.MUSKET_BALL, 999], [I.COIN, 999]];
 const WORLD_TEMPLATES = [
   { key: 'none',     name: 'None',           hint: '' },
   { key: 'village',  name: 'Full Village',   village: true, kit: KIT_VILLAGE,
     hint: 'Five houses next to the spawn with the Bread Nurse, Miner, Salsa Fisherman and Vivian moved in, each with a bed (plus a spare house), and a chest of village stuff.' },
   { key: 'hardmode', name: 'After Hardmode', hm: true, stations: true, kit: KIT_HARDMODE,
     hint: 'Starts in Hardmode with the Wall of Flesh and Skeletron beaten, the Flesh Table and late-game machines by the spawn, and a chest of Hardmode gear.' },
-  { key: 'endgame',  name: 'Endgame',        hm: true, stations: true, village: true, kit: [...KIT_HARDMODE, ...KIT_RELICS, [I.FISHING_ROD, 1], [I.REVERSE_ROD, 1], [I.GUARD_SEEDS, 10], [B.DOOR, 4], [B.WOOD_TABLE, 4], [B.WOOD_CHAIR, 4], [B.BED, 3], [B.DBED, 2]],
-    hint: 'Hardmode AND the full village, every station, the best gear and all the relics.' },
+  { key: 'endgame',  name: 'Endgame',        hm: true, stations: true, village: true, allBosses: true, kit: [...KIT_HARDMODE, ...KIT_RELICS, [I.FISHING_ROD, 1], [I.REVERSE_ROD, 1], [I.GUARD_SEEDS, 10], [B.DOOR, 4], [B.WOOD_TABLE, 4], [B.WOOD_CHAIR, 4], [B.BED, 3], [B.DBED, 2], ...KIT_ENDGAME],
+    hint: 'Hardmode AND the full village, every station, the best gear, all the relics and EVERY item from the newer updates (with every boss up to the Desert Scourge counted as beaten, so all the summons work).' },
   { key: 'bosses',   name: 'Boss Testing',   stations: true, kit: KIT_BOSSES,
     hint: 'Pre-Hardmode, with Suspicious Eyes, Voodoo Dolls (drop one in Hell\'s lava for the Wall of Flesh), Molten gear and full health and mana crystals.' },
 ];
