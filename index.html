@@ -16638,7 +16638,7 @@ function hbInit() {
 const HB_COLS = [new THREE.Color('#c040ff'), new THREE.Color('#ff4aa0'), new THREE.Color('#9aff3a'), new THREE.Color('#ffe060')];
 function hb(x, y, z, vx, vy, vz, o) {                       // fire one bullet. o: { r, col (0-3), life, home, burst }
   if (hiveBullets.length >= HB_MAX) return;
-  hiveBullets.push(Object.assign({ x, y, z, vx, vy, vz, r: 0.3, col: 0, life: 7, dmg: 16 }, o || {}));   // (16 = 80 HP before armour, about 20 in good armour)
+  hiveBullets.push(Object.assign({ x, y, z, vx, vy, vz, r: 0.4, col: 0, life: 7, dmg: 20, flat: !vy }, o || {}));   // (20 = 100 HP before armour, about 25 in good armour)
 }
 function updateHiveBullets(dt) {
   if (!hiveBullets.length) { if (hbMesh) hbMesh.count = 0; return; }
@@ -16651,11 +16651,12 @@ function updateHiveBullets(dt) {
       const ex = px - b.x, ey = py + 1 - b.y, ez = pz - b.z, d = Math.hypot(ex, ey, ez) || 1, k = Math.min(1, dt * 2);
       b.vx += (ex / d * 6 - b.vx) * k; b.vy += (ey / d * 6 - b.vy) * k; b.vz += (ez / d * 6 - b.vz) * k;
     } else if (b.home) {
-      for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2; hb(b.x, b.y, b.z, Math.cos(a) * 7, 0, Math.sin(a) * 7, { col: 2, life: 4 }); }
+      for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2; hb(b.x, b.y, b.z, Math.cos(a) * 9, 0, Math.sin(a) * 9, { col: 2, life: 4 }); }
       hiveBullets.splice(i, 1); continue;
     }
     b.x += b.vx * dt; b.y += b.vy * dt; b.z += b.vz * dt;
-    if (!dead && Math.hypot(b.x - px, b.z - pz) < b.r + 0.32 && b.y > py - b.r && b.y < py + 1.8 + b.r) { hurtPlayer(b.dmg); hiveBullets.splice(i, 1); continue; }
+    if (b.flat) b.y += (py + 0.9 - b.y) * Math.min(1, dt * 4);                           // flat bullets slide to your height: no getting over or under them
+    if (!dead && Math.hypot(b.x - px, b.z - pz) < b.r + 0.45 && b.y > py - b.r - 0.2 && b.y < py + 1.9 + b.r) { hurtPlayer(b.dmg); hiveBullets.splice(i, 1); continue; }
     if (b.life <= 0 || b.y < 0) hiveBullets.splice(i, 1);
   }
   const n = Math.min(HB_MAX, hiveBullets.length), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pos = new THREE.Vector3();
@@ -16687,26 +16688,26 @@ function updateHiveMind(m, dt) {
   const hx = m.x, hy = m.y + 2.4, hz = m.z, ly = player.y + 1.0;                                   // ly: the height you're at
   const pat = HIVE_PATTERNS[Math.floor(t / 14) % HIVE_PATTERNS.length];
   if (pat !== m.pat) { m.pat = pat; m.patT = 0; m.spin = Math.random() * 6.28; }
-  m.patT -= dt * I * fin;
+  m.patT -= dt * I * fin * 1.3;                                                                       // (buffed: 30% more often)
   const every = (sec, fn) => { if (m.patT <= 0) { m.patT += sec; fn(); } };
   const ring = (cx, cz, n, sp, col, off) => { for (let j = 0; j < n; j++) { const q = off + j / n * Math.PI * 2; hb(cx, ly, cz, Math.cos(q) * sp, 0, Math.sin(q) * sp, { col }); } };
-  if (pat === 'spiral') every(0.11, () => { m.spin += 0.38; for (let arm = 0; arm < 3; arm++) { const q = m.spin + arm * 2.094; hb(hx, ly, hz, Math.cos(q) * 7, 0, Math.sin(q) * 7, { col: arm % 2 }); } });
-  else if (pat === 'rings') every(1.2, () => ring(hx, hz, Math.round(16 + 12 * I), 6.5, 0, Math.random() * 6.28));
+  if (pat === 'spiral') every(0.11, () => { m.spin += 0.38; for (let arm = 0; arm < 4; arm++) { const q = m.spin + arm * 1.571; hb(hx, ly, hz, Math.cos(q) * 9, 0, Math.sin(q) * 9, { col: arm % 2 }); } });
+  else if (pat === 'rings') every(1.1, () => ring(hx, hz, Math.round(20 + 14 * I), 8.5, 0, Math.random() * 6.28));
   else if (pat === 'fans') every(0.8, () => {
-    const ex = player.x - hx, ey = ly - hy, ez = player.z - hz, d = Math.hypot(ex, ey, ez) || 1, base = Math.atan2(ez, ex), hd = Math.hypot(ex, ez) / d;
-    for (let j = -3; j <= 3; j++) { const q = base + j * 0.16; hb(hx, hy, hz, Math.cos(q) * hd * 13, ey / d * 13, Math.sin(q) * hd * 13, { col: 1 }); }
+    const ex = player.x - hx, ey = player.y + 0.9 - hy, ez = player.z - hz, d = Math.hypot(ex, ey, ez) || 1, base = Math.atan2(ez, ex), hd = Math.hypot(ex, ez) / d;
+    for (let j = -4; j <= 4; j++) { const q = base + j * 0.14; hb(hx, hy, hz, Math.cos(q) * hd * 16, ey / d * 16, Math.sin(q) * hd * 16, { col: 1 }); }
   });
-  else if (pat === 'rain') every(0.1, () => { const q = Math.random() * 6.28, r = Math.random() * 11; hb(player.x + Math.cos(q) * r, player.y + 16, player.z + Math.sin(q) * r, 0, -9, 0, { col: 2, r: 0.36, life: 3 }); });
-  else if (pat === 'closing') every(2.6, () => {                                                   // a ring closes in on you, with one gap
-    const n = 30, gap = Math.floor(Math.random() * n);
-    for (let j = 0; j < n; j++) { if ((j - gap + n) % n < 4) continue; const q = j / n * Math.PI * 2; hb(player.x + Math.cos(q) * 17, ly, player.z + Math.sin(q) * 17, -Math.cos(q) * 5, 0, -Math.sin(q) * 5, { col: 3, life: 7 }); }
+  else if (pat === 'rain') every(0.06, () => { const q = Math.random() * 6.28, r = Math.random() * 9; hb(player.x + Math.cos(q) * r, player.y + 14, player.z + Math.sin(q) * r, 0, -11, 0, { col: 2, r: 0.45, life: 2.2 }); });   // (rot rain: falls right down to your feet)
+  else if (pat === 'closing') every(2.2, () => {                                                   // a ring closes in on you, with one gap
+    const n = 34, gap = Math.floor(Math.random() * n);
+    for (let j = 0; j < n; j++) { if ((j - gap + n) % n < 4) continue; const q = j / n * Math.PI * 2; hb(player.x + Math.cos(q) * 17, ly, player.z + Math.sin(q) * 17, -Math.cos(q) * 6.5, 0, -Math.sin(q) * 6.5, { col: 3, life: 6 }); }
   });
-  else if (pat === 'clumps') every(1.7, () => { hb(hx, hy, hz, 0, 0, 0, { col: 2, r: 0.75, life: 5, home: 2.5, dmg: 22 }); });
+  else if (pat === 'clumps') every(1.3, () => { hb(hx, hy, hz, 0, 0, 0, { col: 2, r: 0.8, life: 5, home: 2.5, dmg: 26, flat: false }); });
   else if (pat === 'walls') every(2.1, () => {                                                     // a wall of bullets rolls at you, with a gap to slip through
     const ex = player.x - hx, ez = player.z - hz, d = Math.hypot(ex, ez) || 1, ux = ex / d, uz = ez / d, gap = -9 + Math.random() * 15;
-    for (let w = -12; w <= 12; w += 1.2) { if (w > gap && w < gap + 3.2) continue; for (const yy of [0, 1.1]) hb(player.x - ux * 15 - uz * w, player.y + 0.4 + yy, player.z - uz * 15 + ux * w, ux * 6, 0, uz * 6, { col: 0, life: 6 }); }
+    for (let w = -12; w <= 12; w += 1.2) { if (w > gap && w < gap + 3.2) continue; hb(player.x - ux * 15 - uz * w, player.y + 0.9, player.z - uz * 15 + ux * w, ux * 7.5, 0, uz * 7.5, { col: 0, life: 6 }); }
   });
-  if (onBeat && t > 30) ring(hx, hz, Math.round(8 + 8 * I), 8, 1, Math.random() * 6.28);          // rings on the beat, once the song gets going
+  if (onBeat && t > 12) ring(hx, hz, Math.round(10 + 10 * I), 9.5, 1, Math.random() * 6.28);       // rings on the beat, once the song gets going
 }
 
 // ----- MECHAFLESH -----
