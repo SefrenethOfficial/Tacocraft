@@ -1,0 +1,32 @@
+{
+  "$schema": "https://raw.githubusercontent.com/neutralinojs/neutralinojs/main/schemas/neutralino.config.schema.json",
+  "applicationId": "net.tacocraft.game",
+  "version": "2.5.0",
+  "defaultMode": "window",
+  "port": 47213,
+  "documentRoot": "/resources/",
+  "url": "/index.html?desktop=1",
+  "enableServer": true,
+  "enableNativeAPI": false,
+  "tokenSecurity": "one-time",
+  "logging": { "enabled": false, "writeToLogFile": false },
+  "nativeAllowList": [],
+  "modes": {
+    "window": {
+      "title": "TACOCRAFT",
+      "width": 1280, "height": 800, "minWidth": 640, "minHeight": 400,
+      "center": true, "fullScreen": false, "alwaysOnTop": false,
+      "icon": "/resources/icon.png",
+      "enableInspector": false, "borderless": false, "maximize": false, "hidden": false,
+      "resizable": true, "exitProcessOnClose": true
+    }
+  },
+  "cli": {
+    "binaryName": "Tacocraft",
+    "resourcesPath": "/resources/",
+    "extensionsPath": "/extensions/",
+    "binaryVersion": "6.5.0",
+    "clientVersion": "6.5.0",
+    "frontendLibrary": {}
+  }
+}

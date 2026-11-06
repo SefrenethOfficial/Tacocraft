@@ -12551,7 +12551,9 @@ pcEl.querySelectorAll('.pcX').forEach(b => b.addEventListener('click', () => pcS
 // =====================================================================================================================
 const $a = id => document.getElementById(id);      // (the game's $ helper is defined further down the page)
 const SUPA_URL = 'https://irqvkubwhztvfggztxfd.supabase.co', SUPA_KEY = 'sb_publishable_i5vQEdwZiK3bXoo3rBqjiw_IJInNOU6';
-const ACC_MODE = location.protocol === 'http:' ? 'lan' : 'online';
+// LAN_HOSTED: the page came from a TACOCRAFT LAN server. (The Windows app also serves the page over http, from inside itself: it adds ?desktop=1.)
+const LAN_HOSTED = location.protocol === 'http:' && !/[?&]desktop=1/.test(location.search);
+const ACC_MODE = LAN_HOSTED ? 'lan' : 'online';
 const accEsc = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 let accSession = null;                                     // { mode, username, user_id, token, refresh, exp }
 try { const ss = JSON.parse(localStorage.getItem('tacocraft_session') || 'null'); if (ss && ss.mode === ACC_MODE && ss.token) accSession = ss; } catch (e) {}
@@ -22103,9 +22105,9 @@ class RelayPeer extends RelayEvents {
   destroy() { this.destroyed = true; for (const c of this.conns.values()) c.open = false; this.conns.clear(); try { this._ws && this._ws.close(); } catch (e) {} }
 }
 // On the LAN server: the relay. Anywhere else: PeerJS (direct connections, matched by the public PeerJS cloud).
-const netNewPeer = id => location.protocol === 'http:' ? new RelayPeer(id) : (id ? new Peer(id, netPeerOpts()) : new Peer(netPeerOpts()));
+const netNewPeer = id => LAN_HOSTED ? new RelayPeer(id) : (id ? new Peer(id, netPeerOpts()) : new Peer(netPeerOpts()));
 function netPeerOpts() {
-  if (location.protocol !== 'http:') return undefined;
+  if (!LAN_HOSTED) return undefined;
   return { host: location.hostname, port: +location.port || 80, path: '/lan/', secure: false, config: { iceServers: [] } };
 }
 function netStartHost() {
@@ -22635,7 +22637,7 @@ function netRefreshUi() {
 // GitHub page, via the public matchmaking cloud) stays locked while its connection problems are fixed.
 const MULTIPLAYER_ONLINE = false;
 const MULTIPLAYER_LAN = false;                            // (temporarily off: set to true to switch LAN play back on)
-const MULTIPLAYER_OPEN = (location.protocol === 'http:' && MULTIPLAYER_LAN) || MULTIPLAYER_ONLINE;
+const MULTIPLAYER_OPEN = (LAN_HOSTED && MULTIPLAYER_LAN) || MULTIPLAYER_ONLINE;
 const MP_LOCKED_NOTE = 'Multiplayer is locked for now while it is being fixed.';
 { const n = document.getElementById('titleNote'), b = document.getElementById('btnMulti');
   if (n) n.textContent = MULTIPLAYER_OPEN ? 'LAN play is on: everyone on this network can host or join with a room code.' : MP_LOCKED_NOTE;
