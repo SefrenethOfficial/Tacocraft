@@ -14947,8 +14947,8 @@ const UPDATE_LOG = [
     ['Ebonite', ['Beating the Hive Mind makes EBONITE ORE spread through the Corruption\'s stone (mine it with the Picksaw).',
       '20 Ebonite make the SLIMY MEDALLION.']],
     ['The Slime Gods', ['The medallion summons two huge slimes, the EBONITE MASOCHIST (purple) and the CORRUPTED MASOCHIST (red), with their own song.',
-      'They slam the ground with rings of slime; kill one and the other is enraged.',
-      'The real SLIME GOD flies round them. It cannot be touched... but beat both Masochists and it has something to say, and loot to give.',
+      'They fill the air with slime bullets: rings when they land, fans and bursts aimed at you. Kill one and the other is enraged.',
+      'The real SLIME GOD flies round them, spinning out spirals and rings of slime. It cannot be touched... but beat both Masochists and it has something to say, and loot to give.',
       'Its loot: one of the Slimebrand, the Gelstorm, Masochist\'s Flail or the Twin Gel Staff, the Slime Core (10% less damage, no fall damage) and Purified Gel.']],
   ] },
   { v: '2.5', name: 'Sand and Rot', notes: [
@@ -16567,17 +16567,8 @@ function animateSnowman(m, armUp) {
 
 // ----- Dungeon residents: Mage Skeleton, Skeletron (skull + two bony hands), the Old Breadizen -----
 // ----- THE SLIME GODS -----
-function buildMasochist(g, red) {                           // a huge slime (the normal slime, scaled up) with an angry face and spikes
-  const body = red ? '#e8302a' : '#9a3ad8', core = red ? '#7a0a10' : '#4a1078', rig = buildSlime(g, body, core);
-  for (const sx of [-1, 1]) {
-    part(rig.body, 0.16, 0.12, 0.06, red ? '#ffe040' : '#d8ff40', sx * 0.17, 0.44, 0.47, 'glow');                  // glowing eyes
-    part(rig.body, 0.2, 0.04, 0.05, '#14040a', sx * 0.17, 0.53, 0.48).rotation.z = -sx * 0.45;                    // angry brows
-  }
-  part(rig.body, 0.3, 0.05, 0.05, '#14040a', 0, 0.3, 0.52);                                                       // a scowl
-  for (let k = 0; k < 6; k++) {                                                                                   // crystals (purple) or bone spikes (red)
-    const a = k / 6 * Math.PI * 2, sp = part(rig.body, 0.1, 0.32, 0.1, red ? '#f0e0d0' : '#2a1040', Math.cos(a) * 0.3, 0.72, Math.sin(a) * 0.3, red ? undefined : 'glow', UNIT_CONE);
-    sp.rotation.z = -Math.cos(a) * 0.5; sp.rotation.x = Math.sin(a) * 0.5;
-  }
+function buildMasochist(g, red) {                           // just a slime, only much, much bigger
+  const rig = buildSlime(g, red ? '#e8302a' : '#9a3ad8', red ? '#7a0a10' : '#4a1078');
   rig.body.scale.setScalar(3.4); rig.s = 3.4;
   return rig;
 }
@@ -16592,11 +16583,13 @@ function updateMasochist(m, dt, T, dx, dz, d2) {
   if (!partner && !m.enraged) { m.enraged = true; banner(T.name + ' is enraged!', T.red ? '#ff4a4a' : '#c060ff'); }
   const sp = (T.red ? 1.2 : 1) * (m.enraged ? 1.45 : 1);
   faceToward(m, dx, dz, dt, 4);
+  if (mobBlocked(m, m.x, m.y, m.z)) { m.y += 1; m.vy = Math.max(0, m.vy); }              // (stuck in the ground or a tree: climb out)
+  m.airT = m.onGround ? 0 : (m.airT || 0) + dt;
   if (m.onGround) {
-    if (m.wasAir) {                                                                        // SLAM: a ring of slime flies out
+    if (m.wasAir) {                                                                        // SLAM (after a real jump): a ring of slime flies out
       m.squash = 1; m.vx = m.vz = 0;
-      const n = T.red ? 10 : 14;
-      for (let k = 0; k < n; k++) { const a = k / n * Math.PI * 2 + Math.random() * 0.2; addShot({ x: m.x, y: m.y + 0.6, z: m.z, vx: Math.cos(a) * 9, vy: 5, vz: Math.sin(a) * 9, dmg: 26, grav: 14, color: T.color, size: 0.4, glow: true, life: 3 }); }
+      const n = Math.round((T.red ? 14 : 22) * (m.enraged ? 1.4 : 1)), off = Math.random() * 6.28;   // a ring of slime bullets
+      for (let k = 0; k < n; k++) { const a = off + k / n * Math.PI * 2; hb(m.x, player.y + 0.9, m.z, Math.cos(a) * 8, 0, Math.sin(a) * 8, { col: T.red ? 4 : 0, life: 5 }); }
       spawnGibs(m.x, m.y + 0.3, m.z, 16, 1.8, 0.3, 1.8, [T.color, '#ffffff'], 7);
       sfx('boom', { rate: 1.3, vol: 0.5, at: { x: m.x, y: m.y, z: m.z } });
       if (Math.random() < 0.4 && mobs.filter(q => q.kind === 'blight' || q.kind === 'redslime').length < 6) spawnMob(T.red ? 'redslime' : 'blight', m.x + (Math.random() - 0.5) * 3, m.y + 1, m.z + (Math.random() - 0.5) * 3);
@@ -16607,13 +16600,21 @@ function updateMasochist(m, dt, T, dx, dz, d2) {
       m.hops = (m.hops || 0) + 1; const big = m.hops % 3 === 0, s = Math.min(d2 * (big ? 0.55 : 0.8), big ? 11 : 8) * sp;
       m.vx = dx / (d2 || 1) * s; m.vz = dz / (d2 || 1) * s; m.vy = big ? 21 : 13; m.onGround = false; m.hopT = T.red ? 0.9 : 1.4;
     }
-    if (T.red && (m.globT = (m.globT === undefined ? 1.5 : m.globT) - dt * sp) <= 0) {    // the red one lobs globs at you
-      m.globT = 2.4;
-      for (let k = -1; k <= 1; k++) { const ex = player.x - m.x, ez = player.z - m.z, d = Math.hypot(ex, ez) || 1, a = Math.atan2(ez, ex) + k * 0.15, v = Math.min(18, 6 + d * 0.5);
-        addShot({ x: m.x, y: m.y + 2, z: m.z, vx: Math.cos(a) * v, vy: 9, vz: Math.sin(a) * v, dmg: 30, grav: 18, color: '#ff3a3a', size: 0.45, glow: true, life: 4 }); }
-    }
   }
-  m.wasAir = !m.onGround;
+  // bullets, in the air or not
+  const aimAt = (spd, spread, n, col) => {                                                // a fan of bullets straight at you
+    const ox = m.x, oy = m.y + m.type.h * 0.6, oz = m.z, ex = player.x - ox, ey = player.y + 0.9 - oy, ez = player.z - oz, d = Math.hypot(ex, ey, ez) || 1, base = Math.atan2(ez, ex), hd = Math.hypot(ex, ez) / d;
+    for (let j = 0; j < n; j++) { const q = base + (j - (n - 1) / 2) * spread; hb(ox, oy, oz, Math.cos(q) * hd * spd, ey / d * spd, Math.sin(q) * hd * spd, { col }); }
+  };
+  if (T.red) {                                                                             // the red one: bursts of rapid aimed fire, on and off
+    m.burstT = (m.burstT === undefined ? 2 : m.burstT) - dt * sp;
+    if (m.burstT <= 0) { m.burstT = 3.2; m.firing = 1.6; }
+    if (m.firing > 0) { m.firing -= dt; m.shotT = (m.shotT || 0) - dt * sp; if (m.shotT <= 0) { m.shotT = 0.16; aimAt(17, 0.12, m.enraged ? 3 : 2, 4); } }
+  } else {                                                                                 // the purple one: wide fans of slime
+    m.fanT = (m.fanT === undefined ? 1.6 : m.fanT) - dt * sp;
+    if (m.fanT <= 0) { m.fanT = 1.7; aimAt(12, 0.16, m.enraged ? 9 : 7, 0); }
+  }
+  m.wasAir = !m.onGround && m.airT > 0.35;
   mobMoveXZ(m, dt); mobGravity(m, dt);
 }
 function buildSlimeGod(g) {                                 // a swirling ball of purple and red gel round a white core with one eye
@@ -16636,23 +16637,22 @@ const SLIME_GOD_LINES = [[0.5, '...Well fought, little one.', '#d8b0ff'], [3.0, 
 function updateSlimeGod(m, dt) {
   m.alert = 999; m.sees = true; m.vx = m.vy = m.vz = 0;
   const masos = mobs.filter(q => q.type.masochist);
-  if (dead) { masos.forEach(removeMob); banner('The Slime Gods ooze away...', '#c060ff'); removeMob(m); return; }
+  if (dead) { masos.forEach(removeMob); hiveBullets.length = 0; banner('The Slime Gods ooze away...', '#c060ff'); removeMob(m); return; }
   if (masos.length) {                                                                      // the fight: circle the Masochists, throw orbs
     const cx = masos.reduce((a, q) => a + q.x, 0) / masos.length, cz = masos.reduce((a, q) => a + q.z, 0) / masos.length, cy = Math.max(...masos.map(q => q.y));
     m.ang = (m.ang || 0) + dt * 0.9;
     const tx = cx + Math.cos(m.ang) * 6, tz = cz + Math.sin(m.ang) * 6, ty = cy + 7, k = Math.min(1, dt * 2);
     m.x += (tx - m.x) * k; m.y += (ty - m.y) * k; m.z += (tz - m.z) * k;
     m.yaw = Math.atan2(player.x - m.x, player.z - m.z);
-    m.orbT = (m.orbT === undefined ? 3 : m.orbT) - dt;
-    if (m.orbT <= 0) {
-      m.orbT = masos.length === 1 ? 1.8 : 3;
-      const ex = player.x - m.x, ey = player.y + 1 - (m.y + 1.1), ez = player.z - m.z, d = Math.hypot(ex, ey, ez) || 1;
-      addShot({ x: m.x, y: m.y + 1.1, z: m.z, vx: ex / d * 10, vy: ey / d * 10, vz: ez / d * 10, dmg: 24, grav: 0, color: Math.random() < 0.5 ? '#c060ff' : '#ff4a4a', size: 0.5, glow: true, life: 5 });
-    }
+    const fast = masos.length === 1 ? 1.5 : 1;                                            // (faster once a Masochist is down)
+    m.spinT = (m.spinT || 0) - dt * fast;                                                   // a slow two-armed spiral of purple and red
+    if (m.spinT <= 0) { m.spinT = 0.18; m.spin = (m.spin || 0) + 0.3; for (let arm = 0; arm < 2; arm++) { const q = m.spin + arm * Math.PI; hb(m.x, player.y + 0.9, m.z, Math.cos(q) * 6, 0, Math.sin(q) * 6, { col: arm ? 4 : 0, life: 6 }); } }
+    m.orbT = (m.orbT === undefined ? 3 : m.orbT) - dt * fast;                               // and every few seconds, a full ring
+    if (m.orbT <= 0) { m.orbT = 4; const n = 26, off = Math.random() * 6.28; for (let k = 0; k < n; k++) { const q = off + k / n * Math.PI * 2; hb(m.x, player.y + 0.9, m.z, Math.cos(q) * 7, 0, Math.sin(q) * 7, { col: k % 2 ? 4 : 0, life: 6 }); } }
     return;
   }
   // both Masochists are dead: it comes to you and talks
-  if (!m.talkT) { m.talkT = 0.001; slimeGodsDead = true; }
+  if (!m.talkT) { m.talkT = 0.001; slimeGodsDead = true; hiveBullets.length = 0; }
   m.talkT += dt;
   camera.getWorldDirection(lookDir);
   const tx = player.x + lookDir.x * 5, tz = player.z + lookDir.z * 5, ty = player.y + 2 + (m.talkT > 13 ? (m.talkT - 13) * 8 : 0), k = Math.min(1, dt * 2.5);
@@ -16660,7 +16660,7 @@ function updateSlimeGod(m, dt) {
   for (const [at, line, col] of SLIME_GOD_LINES) if (m.talkT >= at && !(m.said || []).includes(at)) {
     (m.said = m.said || []).push(at);
     chatAdd('The Slime God: ' + line, { color: col });
-    if (at === 3.0) { banner('ULTRA DEATH: Level 1 complete!', '#ff9ad0'); ultraDeath = Math.max(ultraDeath, 1); }
+    if (at === 3.0) ultraDeath = Math.max(ultraDeath, 1);                                // (no banner: the Slime God says it)
     if (at === 6.0) {                                                                       // its loot
       const W4 = [I.SLIMEBRAND, I.GELSTORM, I.MASO_FLAIL, I.TWIN_GEL_STAFF]; giveOrDrop(W4[Math.floor(Math.random() * 4)], 1);
       giveOrDrop(I.SLIME_CORE, 1); giveOrDrop(I.PURIFIED_GEL, 15 + Math.floor(Math.random() * 11)); giveOrDrop(I.GREATER_HEALING, 10); giveOrDrop(I.COIN, 500);
@@ -16672,7 +16672,11 @@ function updateSlimeGod(m, dt) {
 }
 function summonSlimeGods() {
   const a = Math.random() * 6.28;
-  const place = (kind, ang) => { const x = player.x + Math.cos(ang) * 18, z = player.z + Math.sin(ang) * 18; return spawnMob(kind, x, groundTop(x, player.y + 12, z) + 0.01, z, true); };
+  const place = (kind, ang) => {                                                          // (lifted until it isn't inside the ground or a tree)
+    const x = player.x + Math.cos(ang) * 18, z = player.z + Math.sin(ang) * 18, m = spawnMob(kind, x, groundTop(x, player.y + 12, z) + 0.01, z, true);
+    for (let k = 0; k < 30 && mobBlocked(m, m.x, m.y, m.z); k++) m.y += 1;
+    return m;
+  };
   place('ebonmaso', a); place('crimmaso', a + 0.9);
   spawnMob('slimegod', player.x + Math.cos(a + 0.45) * 14, player.y + 9, player.z + Math.sin(a + 0.45) * 14, true);
   banner('The Slime Gods have awoken!', '#c060ff');
@@ -16812,7 +16816,7 @@ function hbInit() {
   hbMesh.count = 0;
   scene.add(hbMesh);
 }
-const HB_COLS = [new THREE.Color('#c040ff'), new THREE.Color('#ff4aa0'), new THREE.Color('#9aff3a'), new THREE.Color('#ffe060')];
+const HB_COLS = [new THREE.Color('#c040ff'), new THREE.Color('#ff4aa0'), new THREE.Color('#9aff3a'), new THREE.Color('#ffe060'), new THREE.Color('#ff2a2a')];   // (4: the Corrupted Masochist's red)
 function hb(x, y, z, vx, vy, vz, o) {                       // fire one bullet. o: { r, col (0-3), life, home, burst }
   if (hiveBullets.length >= HB_MAX) return;
   hiveBullets.push(Object.assign({ x, y, z, vx, vy, vz, r: 0.4, col: 0, life: 7, dmg: 20, flat: !vy }, o || {}));   // (20 = 100 HP before armour, about 25 in good armour)
